@@ -1,0 +1,82 @@
+import pandas as pd
+from datetime import datetime
+from main import SqliteDB
+file_path = 'C:\\Users\\PrathushaKasthuri\\Downloads\\employee_data.json'
+# Read the data into a Pandas DataFrame
+df = pd.read_json(file_path)
+def DQ_Check():
+    def is_correct_date_format(date_str):
+        try:
+            datetime.strptime(date_str, '%Y-%m-%d')
+            return True
+        except ValueError:
+            return False
+
+    def has_invalid_phone_number_length(phone_number):
+        return len(str(phone_number).replace("-", "")) > 10
+
+    def perform_data_quality_checks(data_frame):
+    # Null check for 'ID' column
+        null_id_data = data_frame[data_frame['ID'].isnull()]
+
+    # Null check for 'Name' column
+        null_name_data = data_frame[data_frame['Name'].isnull()]
+
+    # Null check for 'DateOfBirth' column
+        null_dob_data = data_frame[data_frame['DateOfBirth'].isnull()]
+
+    # Length check for 'PhoneNumber' column
+        invalid_length_data = data_frame[data_frame['PhoneNumber'].apply(has_invalid_phone_number_length)]
+
+    # Filter out rows with null values in 'DateOfBirth' column
+        non_null_data = data_frame.dropna(subset=['DateOfBirth'])
+
+    # Check date format for 'DateOfBirth' column
+        non_null_data['IsCorrectDateFormat'] = non_null_data['DateOfBirth'].astype(str).apply(is_correct_date_format)
+
+    # Identify rows with incorrect date format
+        incorrect_data = pd.concat([
+            null_id_data,
+            null_name_data,
+            null_dob_data,
+            invalid_length_data,
+            non_null_data[~non_null_data['IsCorrectDateFormat']]
+        ]).drop_duplicates()
+
+    # Identify rows with correct data
+        correct_data = data_frame[~data_frame.index.isin(incorrect_data.index)]
+
+        return incorrect_data, correct_data
+
+    # Define the file path for employee data in JSON format
+    # file_path = 'C:\\Users\\PrathushaKasthuri\\Downloads\\employee_data.json'
+    #
+    # # Read the data into a Pandas DataFrame
+    # df = pd.read_json(file_path)
+
+    # Perform data quality checks
+    incorrect_data, correct_data = perform_data_quality_checks(df)
+
+    # Print information about records with incorrect data formats
+    print("Incorrect Data:")
+    print(incorrect_data[['ID', 'Name', 'DateOfBirth', 'PhoneNumber']])
+
+    # Print information about records with correct data formats
+    print("Correct Data:")
+    print(correct_data[['ID', 'Name', 'DateOfBirth', 'PhoneNumber']])
+    sql_db_connection = SqliteDB()
+    cursor = sql_db_connection.cursor()
+
+    #Send correct_data to the 'SuccessTable'
+    correct_data.to_sql('Correct_Data_Table', sql_db_connection, index=False, if_exists='replace')
+
+    #Send incorrect_data to the 'ErrorTable'
+    incorrect_data.to_sql('Error_Data_Table', sql_db_connection, index=False, if_exists='replace')
+    sql_db_connection.commit()
+    sql_db_connection.close()
+
+    result = {'passed_data': len(correct_data), 'failed_data': len(incorrect_data), 'length of data':len(df)}
+    return result
+
+DP = DQ_Check()
+print(DP)
