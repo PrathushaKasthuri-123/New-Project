@@ -78,5 +78,6 @@ def DQ_Check():
     result = {'passed_data': len(correct_data), 'failed_data': len(incorrect_data), 'length of data':len(df)}
     return result
 Calling Function
+the DP is the Variable whcich it is taken
 DP = DQ_Check()
 print(DP)
